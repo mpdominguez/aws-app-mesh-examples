@@ -104,15 +104,20 @@ Set the following environment variables:
 
 Run the `vpc.sh` script to create a VPC for the application in the region you specify. It will be configured for two availability zones (AZs); each AZ will be configured with a public and a private subnet. You can choose from one of the nineteen [Currently available AWS regions for App Mesh]. The deployment will include an [Internet Gateway] and a pair of [NAT Gateways] (one in each AZ) with default routes for them in the private subnets.
 
+***Clone the repo into Cloud9***
+```
+git clone https://github.com/mpdominguez/aws-app-mesh-examples
+```
 ***Create the VPC***
 
 `examples/infrastructure/vpc.sh`
 
 ```
-$ export AWS_PROFILE=default
-$ export AWS_DEFAULT_REGION=us-west-2
-$ export ENVIRONMENT_NAME=DEMO
-$ ./examples/infrastructure/vpc.sh
+cd  aws-app-mesh-examples
+export AWS_PROFILE=default
+export AWS_DEFAULT_REGION=us-west-2
+export ENVIRONMENT_NAME=DEMO
+./examples/infrastructure/vpc.sh
 ...
 + aws --profile default --region us-west-2 cloudformation deploy --stack-name DEMO-vpc --capabilities CAPABILITY_IAM --template-file examples/infrastructure/vpc.yaml --parameter-overrides EnvironmentName=DEMO 
 Waiting for changeset to be created..
@@ -137,11 +142,8 @@ We will use the same environment variables from the previous step, plus one addi
 `examples/infrastructure/appmesh-mesh.sh`
 
 ```
-$ export AWS_PROFILE=default
-$ export AWS_DEFAULT_REGION=us-west-2
-$ export ENVIRONMENT_NAME=DEMO
-$ export MESH_NAME=appmesh-mesh
-$ ./examples/infrastructure/appmesh-mesh.sh
+export MESH_NAME=appmesh-mesh
+./examples/infrastructure/appmesh-mesh.sh
 ...
 + aws --profile default --region us-west-2 cloudformation deploy --stack-name DEMO-appmesh-mesh --capabilities CAPABILITY_IAM --template-file /home/ec2-user/projects/aws/aws-app-mesh-examples/examples/infrastructure/appmesh-mesh.yaml --parameter-overrides EnvironmentName=DEMO AppMeshMeshName=appmesh-mesh
 
@@ -174,12 +176,10 @@ In addition to the previously defined environment variables, you will also need 
 `examples/infrastructure/ecs-cluster.sh`
 
 ```
-$ export AWS_PROFILE=default
-$ export AWS_DEFAULT_REGION=us-west-2
-$ export ENVIRONMENT_NAME=DEMO
-$ export SERVICES_DOMAIN=demo.local
-$ export KEY_PAIR_NAME=tony_devbox2
-$ ./examples/infrastructure/ecs-cluster.sh
+export SERVICES_DOMAIN=demo.local
+aws ec2 create-key-pair --key-name tony_devbox2
+export KEY_PAIR_NAME=tony_devbox2
+./examples/infrastructure/ecs-cluster.sh
 ...
 + aws --profile default --region us-west-2 cloudformation deploy --stack-name DEMO-ecs-cluster --capabilities CAPABILITY_IAM --template-file /home/ec2-user/projects/aws/aws-app-mesh-examples/examples/infrastructure/ecs-cluster.yaml --parameter-overrides EnvironmentName=DEMO KeyName=tony_devbox2 ECSServicesDomain=demo.local ClusterSize=5
 
@@ -200,13 +200,13 @@ You have provisioned the infrastructure you need. You can confirm in the AWS Con
 You can also confirm status with the AWS CLI:
 
 ```
-$ aws cloudformation describe-stacks --stack-name DEMO-vpc --query 'Stacks[0].StackStatus'
+aws cloudformation describe-stacks --stack-name DEMO-vpc --query 'Stacks[0].StackStatus'
 "CREATE_COMPLETE"
 
-$ aws cloudformation describe-stacks --stack-name DEMO-appmesh-mesh --query 'Stacks[0].StackStatus'
+aws cloudformation describe-stacks --stack-name DEMO-appmesh-mesh --query 'Stacks[0].StackStatus'
 "CREATE_COMPLETE"
 
-$ aws cloudformation describe-stacks --stack-name DEMO-ecs-cluster --query 'Stacks[0].StackStatus'
+aws cloudformation describe-stacks --stack-name DEMO-ecs-cluster --query 'Stacks[0].StackStatus'
 "CREATE_COMPLETE"
 ```
 
@@ -227,12 +227,7 @@ We will use the same exported environment variables created previously. No new e
 `examples/apps/colorapp/servicemesh/appmesh-colorapp.sh`
 
 ```
-$ export AWS_PROFILE=default
-$ export AWS_DEFAULT_REGION=us-west-2
-$ export ENVIRONMENT_NAME=DEMO
-$ export SERVICES_DOMAIN=demo.local
-$ export MESH_NAME=appmesh-mesh
-$ ./examples/apps/colorapp/servicemesh/appmesh-colorapp.sh
+./examples/apps/colorapp/servicemesh/appmesh-colorapp.sh
 ...
 + aws --profile default --region us-west-2 cloudformation deploy --stack-name DEMO-appmesh-colorapp --capabilities CAPABILITY_IAM --template-file /home/ec2-user/projects/aws/aws-app-mesh-examples/examples/apps/colorapp/servicemesh/appmesh-colorapp.yaml --parameter-overrides EnvironmentName=DEMO ServicesDomain=demo.local AppMeshMeshName=appmesh-mesh
 
@@ -255,10 +250,12 @@ Deploy the `gateway` image:
 
 ```
 # from the colorapp repo root...
-$ cd examples/apps/colorapp/src/gateway
-$ aws ecr create-repository --repository-name=gateway
-$ export COLOR_GATEWAY_IMAGE=$(aws ecr describe-repositories --repository-names=gateway --query 'repositories[0].repositoryUri' --output text)
-$ ./deploy.sh
+cd ~/environment/aws-app-mesh-examples
+cd examples/apps/colorapp/src/gateway
+aws ecr create-repository --repository-name=gateway
+export COLOR_GATEWAY_IMAGE=$(aws ecr describe-repositories --repository-names=gateway --query 'repositories[0].repositoryUri' --output text)
+export AWS_ACCOUNT_ID=$(aws ecr describe-repositories --repository-names=gateway --query 'repositories[0].repositoryUri' | awk -F. '{print $1}' | sed s/\"//g)
+./deploy.sh
 + '[' -z 226767807331.dkr.ecr.us-west-2.amazonaws.com/gateway ']'
 + docker build -t 226767807331.dkr.ecr.us-west-2.amazonaws.com/gateway .
 Sending build context to Docker daemon      1MB
@@ -274,10 +271,11 @@ Deploy the `colorteller` image:
 
 ```
 # from the colorapp repo root....
-$ cd examples/apps/colorapp/src/colorteller
-$ aws ecr create-repository --repository-name=colorteller
-$ export COLOR_TELLER_IMAGE=$(aws ecr describe-repositories --repository-names=colorteller --query 'repositories[0].repositoryUri' --output text)
-$ ./deploy.sh
+cd ~/environment/aws-app-mesh-examples
+cd examples/apps/colorapp/src/colorteller
+aws ecr create-repository --repository-name=colorteller
+export COLOR_TELLER_IMAGE=$(aws ecr describe-repositories --repository-names=colorteller --query 'repositories[0].repositoryUri' --output text)
+./deploy.sh
 + '[' -z 226767807331.dkr.ecr.us-west-2.amazonaws.com/colorteller:latest ']'
 + docker build -t 226767807331.dkr.ecr.us-west-2.amazonaws.com/colorteller:latest .
 Sending build context to Docker daemon  996.4kB
@@ -309,15 +307,11 @@ In addition to the previously defined environment variables, you will also need 
 `examples/apps/colorapp/ecs/ecs-colorapp.sh`
 
 ```
-$ export AWS_PROFILE=default
-$ export AWS_DEFAULT_REGION=us-west-2
-$ export ENVIRONMENT_NAME=DEMO
-$ export SERVICES_DOMAIN=demo.local
-$ export KEY_PAIR_NAME=tony_devbox2
-$ export ENVOY_IMAGE=111345817488.dkr.ecr.us-west-2.amazonaws.com/aws-appmesh-envoy:v1.9.0.0-prod
-$ export COLOR_GATEWAY_IMAGE=$(aws ecr describe-repositories --repository-names=gateway --query 'repositories[0].repositoryUri' --output text)
-$ export COLOR_TELLER_IMAGE=$(aws ecr describe-repositories --repository-names=colorteller --query 'repositories[0].repositoryUri' --output text)
-$ ./examples/apps/colorapp/ecs/ecs-colorapp.sh
+cd ~/environment/aws-app-mesh-examples
+export ENVOY_IMAGE=111345817488.dkr.ecr.us-west-2.amazonaws.com/aws-appmesh-envoy:v1.9.0.0-prod
+export COLOR_GATEWAY_IMAGE=$(aws ecr describe-repositories --repository-names=gateway --query 'repositories[0].repositoryUri' --output text)
+export COLOR_TELLER_IMAGE=$(aws ecr describe-repositories --repository-names=colorteller --query 'repositories[0].repositoryUri' --output text)
+./examples/apps/colorapp/ecs/ecs-colorapp.sh
 ...
 Waiting for changeset to be created..
 Waiting for stack create/update to complete
@@ -331,11 +325,11 @@ $
 Once we have deployed the app, we can curl the frontend service (`gateway`). To get the endpoint, run the following code:
 
 ```
-$ colorapp=$(aws cloudformation describe-stacks --stack-name=$ENVIRONMENT_NAME-ecs-colorapp --query="Stacks[0
+cd ~/environment/aws-app-mesh-examples
+colorapp=$(aws cloudformation describe-stacks --stack-name=$ENVIRONMENT_NAME-ecs-colorapp --query="Stacks[0
 ].Outputs[?OutputKey=='ColorAppEndpoint'].OutputValue" --output=text); echo $colorapp
-http://DEMO-Publi-M7WJ5RU13M0T-553915040.us-west-2.elb.amazonaws.com
 
-$ curl $colorapp/color
+curl -w "\n" $colorapp/color
 {"color":"red", "stats": {"red":1}}
 ```
 
@@ -346,7 +340,7 @@ $ curl $colorapp/color
 Currently, the the app equally distributes traffic among blue, red, and white color teller virtual nodes through the default virtual router configuration, so if you run the curl command a few times, you might see something similar to this: 
 
 ```
-$ curl $colorapp/color
+curl -w "\n" $colorapp/color
 {"color":"red", "stats": {"blue":0.33,"red":0.36,"white":0.31}}
 ```
 
@@ -411,7 +405,7 @@ Successfully created/updated stack - DEMO-appmesh-colorapp
 Now, when you curl the app, you will see a responses like the following:
 
 ```
-$ curl $colorapp/color
+curl -w "\n" $colorapp/color
 {"color":"black", "stats": {"black":0.19,"blue":0.28,"red":0.27,"white":0.26}}
 
 ...
@@ -422,11 +416,11 @@ $ curl $colorapp/color
 The following query will clear the stats history:
 
 ```
-$ curl $colorapp/color/clear
+curl -w "\n" $colorapp/color/clear
 cleared
 
 # now requery
-$ curl $colorapp/color
+curl -w "\n" $colorapp/color
 {"color":"black", "stats": {"black":1}}
 ```
 
@@ -465,7 +459,7 @@ Then deploy the update and then clear the color history for fresh histograms:
 ```
 $ ./examples/apps/colorapp/servicemesh/appmesh-colorapp.sh
 ...
-$ curl $colorapp/color/clear
+curl -w "\n" $colorapp/color/clear
 cleared
 ```
 
@@ -541,7 +535,7 @@ After saving the updated route configuration, you should see:
 Now when you fetch a color, you should start to see "red" responses. Over time, the histogram (`stats`) field will show the distribution approaching 50% for each:
 
 ```
-$ curl $colorapp/color
+curl -w "\n" $colorapp/color
 {"color":"red", "stats": {"blue":0.75,"red":0.25}}
 ```
 
